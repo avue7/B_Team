@@ -7,33 +7,52 @@ taking a picture.
 '''
 import sys
 import smtplib
-import pygame
-import pygame.camera
 
-from pygame.locals import *
 from gpiozero import MotionSensor
 from datetime import datetime
 
-## If using twilio
 from twilio.rest import Client
 
+#webcam
+import os
+import pygame, sys
+import pygame.camera
+from pygame.locals import *
 
-# Var declarations:
+#variable declarations:
 notified = 0
 visitor = "unknown visitor"
 
 #yourEmail = "thebteam548@gmail.com"
-# Testing with my email....change this to yours for testing...the input does not work.
+##Testing with my email....change this to yours for testing...the input does not work.
 yourEmail = "athit_vue@hotmail.com"
 
 server = smtplib.SMTP()
 msg = "A(n) {} is at the door.".format(visitor) #currently, this is the message that will be sent.
 pir = MotionSensor(4)
 
-# Initialize 
-pygame.init()
-pygame.camera.init()
-#cam = pygame.camera.Camera("/dev/video0",(640,480))
+#set width and height of photo captured
+width = 640
+height = 480
+
+#setup window 
+windowSurfaceObj = pygame.display.set_mode((width, height), 1, 16)
+pygame.display.set_caption('Front Door Camera')
+
+#initialise pygame 
+def camera_init():
+    pygame.init()
+    pygame.camera.init()
+    cam = pygame.camera.Camera("/dev/video0",(width,height))
+    cam.start()
+    return cam
+
+#display the picture (may not need only for debugging)
+def display_picture(image):
+    catSurfaceObj = image
+    windowSurfaceObj.blit(catSurfaceObj, (0,0))
+    pygame.display.update()
+
 '''
 The above is the piece of code that Pi doesn't seem to like. We will
 need to set cam and connect it to the camera we intend to use in the 
@@ -93,6 +112,18 @@ while True:
             formatted_date = format_date(time_tripped)
             print("Motion detected")
             print(str(formatted_date))
+
+            ########  Taking a picture  #########
+            cam = camera_init()
+            image = cam.get_image()
+            cam.stop()
+
+            #display the picture (optional for debugging only)
+            display_picture(image)
+
+            #save picture
+            pygame.image.save(windowSurfaceObj, 'capture_pic.jpg')
+            #####################################
 
             ########  This is for sending email  ########
             print("Sending email...")
