@@ -14,6 +14,9 @@ from pygame.locals import *
 from gpiozero import MotionSensor
 from datetime import datetime
 
+## If using twilio
+from twilio.rest import Client
+
 
 # Var declarations:
 notified = 0
@@ -54,6 +57,26 @@ def format_date(time_tripped):
     formatted_date = time_tripped.strftime('%m/%d/%Y @ %I:%M:%S %p')
     return formatted_date
 
+##
+# notify_thru_text
+#
+# When sensor is tripped, this method will be invoked and make an 
+# api call that will send a text message to the "to" phone number. 
+# 
+# @param time_tripped The time that the motion was detected. 
+def notify_thru_text(time_tripped):
+    account_sid = "AC0c8a9a36ec0ce06faee25529cd2e76a2"
+    auth_token = "47f6321d24610826fecef68747cbf81e"
+
+    client = Client(account_sid, auth_token)
+    message = client.messages.create(
+        to="+15304888429", 
+        ## Number registered to Athit's twilio account
+        from_="+15304045494", 
+        body="\nSomeone is at the door!\n" + time_tripped
+    )
+    print("Text message sent!")
+    return
 
 while True:
 	#print("Waiting for motion.")
@@ -70,8 +93,9 @@ while True:
             formatted_date = format_date(time_tripped)
             print("Motion detected")
             print(str(formatted_date))
+
+            ########  This is for sending email  ########
             print("Sending email...")
-            
             server.connect('smtp.gmail.com', 587)
     	    server.starttls()
 	    server.login("thebteam548@gmail.com", "Bpass548") #This is the email address we're using to send the email.
@@ -88,11 +112,16 @@ while True:
 	    attached image. If we want to go further, we can have the face recognition
 	    seperate known faces into a category of "friends", "family", and "acquaintances".
 	    '''
-	
             print("Done sending email.")
-            notified = 1
 	    server.quit()
-	pir.wait_for_no_motion(0)
+	    #############################################
+
+            ######### This is for sending a text message ###########
+            ## DISABLING FOR NOW
+            # notify_thru_text(formatted_date)
+            ########################################################
+        
+        pir.wait_for_no_motion(0)
         if not pir.motion_detected: 
             notified = 0
             print("No motion detected")
