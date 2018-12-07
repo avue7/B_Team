@@ -7,6 +7,9 @@ taking a picture.
 '''
 import sys
 import smtplib
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.MIMEText import MIMEText
 
 from gpiozero import MotionSensor
 from datetime import datetime
@@ -15,7 +18,7 @@ from twilio.rest import Client
 
 #webcam
 import os
-import pygame, sys
+import pygame
 import pygame.camera
 from pygame.locals import *
 
@@ -127,11 +130,31 @@ while True:
 
             ########  This is for sending email  ########
             print("Sending email...")
+            # Create the root message and fill in the from, to, and subject headers
+            msgRoot = MIMEMultipart('related')
+            msgRoot['Subject'] = 'test message'
+            msgRoot['From'] = "me"
+            msgRoot['To'] = "you"
+            msgRoot.preamble = 'This is a multi-part message in MIME format.'
+            
+            msgAlternative = MIMEMultipart('alternative')
+            msgRoot.attach(msgAlternative)
+
+            msgText = MIMEText(msg)
+            msgAlternative.attach(msgText)
+
+            fp = open('capture_pic.jpg', 'rb')
+            msgImage = MIMEImage(fp.read())
+            fp.close()
+            
+            msgRoot.attach(msgImage)
+            #msg.attach(img)
+            
             server.connect('smtp.gmail.com', 587)
     	    server.starttls()
 	    server.login("thebteam548@gmail.com", "Bpass548") #This is the email address we're using to send the email.
-	    server.sendmail("thebteam548@gmail.com", yourEmail, msg) #Right now, we're just sending an email to ourselves.
-	    #msg.attach(img)
+	    server.sendmail("thebteam548@gmail.com", yourEmail, msgRoot.as_string()) #Right now, we're just sending an email to ourselves.
+	    # msg.attach(image)
 	    '''
 	    At this point, img should be attached to our email. In addition, face
 	    recognition should be used to identify if the img is recognized or not.
