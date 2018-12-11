@@ -24,7 +24,10 @@ font = cv2.FONT_HERSHEY_SIMPLEX
 id = 0
 
 # names related to ids: example ==> Marcelo: id=1,  etc
-names = ['None', 'Athit'] 
+# Add your name here...(I hardcoded my name)
+# If you put yourself as user one then you need to add it to the
+# correct index.
+names = ['None', 'Athit', 'stranger'] 
 
 # Initialize and start realtime video capture
 cam = cv2.VideoCapture(0)
