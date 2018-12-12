@@ -24,12 +24,10 @@ from train_model import train
 from recognize_video import recognize_video
 
 ########### global variable declarations: ############
-visitor = "unknown visitor"
 
 #yourEmail = "athit_vue@hotmail.com"
 
 server = smtplib.SMTP()
-msg = "A(n) {} is at the door.".format(visitor)
 pir = MotionSensor(4)
 
 # set width and height of photo captured
@@ -158,6 +156,9 @@ def add_new_known():
 
     cam.stop()
 
+    pygame.display.quit()
+    pygame.quit()
+
     print("\n[INFO] Done taking {}'s picture.".format(name) + " Extracting embeddings...\n")
     extract()
 
@@ -217,6 +218,9 @@ def add_more_pictures():
         count = count + 1
 
     cam.stop()
+    
+    pygame.display.quit()
+    pygame.quit()
 
     print("\n[INFO] Done taking {}'s picture".format(name1) + ". Extracting embeddings...\n")
     extract()
@@ -255,10 +259,17 @@ def start_detection(user_email):
             print("\n[INFO] Starting Recognizer...\n")
             ret_name = recognize_video()
             
-            if ret_name == "unknown":
+            if ret_name == "unknown" or ret_name == "":
                 ########  This is for sending email  ########
-                print("\n[INFO] Unknown person. Sending email...\n") 
+                vistor=''
+                if ret_name == "unknown":
+                    print("\n[INFO] Unknown person. Sending email...\n") 
+                    visitor="Unknown person"
+                else:
+                    print("\n[INFO] Somebody tripped the sensor, Could not detect.\n")
+                    visitor="Somebody"
                 # Create the root message and fill in the from, to, and subject headers
+                msg = "{} is at the door.".format(visitor)
                 msgRoot = MIMEMultipart('related')
                 msgRoot['Subject'] = 'test message'
                 msgRoot['From'] = "me"

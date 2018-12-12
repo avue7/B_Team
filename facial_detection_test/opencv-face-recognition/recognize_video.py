@@ -14,6 +14,7 @@ import pickle
 import time
 import cv2
 import os
+from recognize import recognize
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -24,6 +25,7 @@ args = vars(ap.parse_args())
 
 def recognize_video():
     name=''
+    counter = 0
     # load our serialized face detector from disk
     print("[INFO] loading face detector...")
     protoPath = os.path.sep.join(["face_detection_model", "deploy.prototxt"])
@@ -48,7 +50,18 @@ def recognize_video():
     fps = FPS().start()
     
     # loop over frames from the video file stream
-    while True:
+    timer_from = 10
+    known_counter = 0
+    unknown_counter = 0
+    known_name = ""
+    print("\n[INFO] Camera will record for 10 secs: ")
+    while not timer_from == 0:
+        name=''
+        mins, secs = divmod(timer_from, 60)
+        timeformat = '{:02d}:{:02d}'.format(mins, secs)
+        print(timeformat, end='\r')
+        time.sleep(1)
+
         # grab the frame from the threaded video stream
         frame = vs.read()
         
@@ -125,13 +138,25 @@ def recognize_video():
 
         # testing this
         if not name =='':
+            counter += 1
             print("\n[INFO] Captured person name: ", name)
-            cv2.imwrite("captured_images/captured_image.jpg", frame)
-            break
+            cv2.imwrite("captured_images/captured_image.{}.jpg".format(counter), frame)
+            
+            if name == "unknown":
+                unknown_counter += 1
+            else:
+                known_counter += 1
+                known_name = name
+
+            if counter == 5:
+                break
+        
+        timer_from -=1
+
 
     # stop the timer and display FPS information
     fps.stop()
-    print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+    print("\n[INFO] elasped time: {:.2f}".format(fps.elapsed()))
     print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
     
     # do a bit of cleanup
@@ -139,7 +164,13 @@ def recognize_video():
     vs.stop()
     
     time.sleep(3)
+    #name = recognize()
 
+    if known_counter > unknown_counter:
+        name = known_name
+    else:
+        name = "unknown"
+    
     return name
 
 #recognize_video()
