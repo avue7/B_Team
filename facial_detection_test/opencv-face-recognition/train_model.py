@@ -38,4 +38,4 @@ def train():
     f.write(pickle.dumps(le))
     f.close()
 
-train()
+#train()

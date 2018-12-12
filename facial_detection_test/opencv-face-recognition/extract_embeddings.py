@@ -112,4 +112,4 @@ def extract():
         f.close()
 
 # Test
-extract()
+#extract()
