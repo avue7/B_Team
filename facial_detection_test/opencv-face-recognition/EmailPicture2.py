@@ -259,8 +259,17 @@ def start_detection(user_email):
             print("\n[INFO] Starting Recognizer...\n")
             ret_name = recognize_video()
             
+            dir_path = "captured_images/"
+            image_count = len(os.listdir(dir_path))
+            
+            if image_count == 0:
+                print("\n[INFO] Something tripped the sensor, but no face was.")
+                print("recognized. It could have been a cat or something.\n")
+                continue
+
             if ret_name == "unknown" or ret_name == "":
                 ########  This is for sending email  ########
+                
                 vistor=''
                 if ret_name == "unknown":
                     print("\n[INFO] Unknown person. Sending email...\n") 
@@ -279,15 +288,18 @@ def start_detection(user_email):
                 msgRoot.attach(msgAlternative)
                 msgText = MIMEText(msg)
                 msgAlternative.attach(msgText)
-               
-                for x in range(5):
-                    x = x+1
-                    fp = open('captured_images/captured_image.{}.jpg'.format(x), 'rb')
+              
+                # Attach all images captured to email
+                img_index = 0
+                print("\n[INFO] Found {} captured images. Attaching all to email...".format(image_count))
+                for x in range(image_count):
+                    img_index += 1
+                    fp = open('captured_images/captured_image.{}.jpg'.format(img_index), 'rb')
                     msgImage = MIMEImage(fp.read())
                     fp.close()
                 
                     msgRoot.attach(msgImage)
-                
+
                 server.connect('smtp.gmail.com', 587)
                 server.starttls()
                 server.login("thebteam548@gmail.com", "Bpass548")

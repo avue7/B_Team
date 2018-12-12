@@ -1,8 +1,4 @@
-# USAGE
-# python recognize_video.py --detector face_detection_model \
-#	--embedding-model openface_nn4.small2.v1.t7 \
-#	--recognizer output/recognizer.pickle \
-#	--le output/le.pickle
+#!/bin/python3
 
 # import the necessary packages
 from imutils.video import VideoStream
@@ -60,6 +56,9 @@ def recognize_video():
     known_counter = 0
     unknown_counter = 0
     known_name = ""
+
+    found_face = False
+
     print("\n[INFO] Camera will record for 10 secs: ")
     while not timer_from == 0:
         name=''
@@ -144,7 +143,9 @@ def recognize_video():
 
         # testing this
         if not name =='':
+            found_face = True
             counter += 1
+            image_id += 1
             print("\n[INFO] Captured person name: ", name)
             cv2.imwrite("captured_images/captured_image.{}.jpg".format(image_id), frame)
             
@@ -156,7 +157,7 @@ def recognize_video():
 
             if counter == 5:
                 break
-        else:
+        elif found_face == True:
             image_id += 1
             cv2.imwrite("captured_images/captured_image.{}.jpg".format(image_id), frame)
             
