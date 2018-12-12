@@ -1,10 +1,5 @@
 #!/usr/bin/python3
-'''
-This code is meant to detect motion and, upon detecting motion, take a
-picture and send it to the supplied email. In its current state, all it
-will do is send an email. For whatever reason, Pi is having issues
-taking a picture.
-'''
+
 import sys
 import time
 import smtplib
@@ -18,51 +13,59 @@ from datetime import datetime
 
 from twilio.rest import Client
 
-#webcam
 import os
 import pygame
 import pygame.camera
 from pygame.locals import *
 
-#working files imports
+# imports from external .py files
 from extract_embeddings import extract
 from train_model import train
 from recognize_video import recognize_video
 
-#variable declarations:
+########### global variable declarations: ############
 visitor = "unknown visitor"
 
-#yourEmail = "thebteam548@gmail.com"
-##Testing with my email....change this to yours for testing...the input does not work.
-yourEmail = "athit_vue@hotmail.com"
+#yourEmail = "athit_vue@hotmail.com"
 
 server = smtplib.SMTP()
 msg = "A(n) {} is at the door.".format(visitor)
 pir = MotionSensor(4)
 
-#set width and height of photo captured
+# set width and height of photo captured
 width = 640
 height = 480
+######################################################
 
+##
+# setup_window
+#
+# Setup the window for pictures captured.
 def setup_window(): 
     windowSurfaceObj = pygame.display.set_mode((width, height), 1, 16)
     pygame.display.set_caption('Front Door Camera')
     return windowSurfaceObj
 
-#initialise pygame 
+##
+# camera_init
+#
+# Initalize the camera.
+# 
+# @return cam The camera being used.
 def camera_init():
     pygame.init()
     pygame.camera.init()
     cam = pygame.camera.Camera("/dev/video0",(width,height))
     return cam
 
-#display the picture (may not need only for debugging)
+##
+# display_picture
+#
+# Displays the picture in the windowsurface created
 def display_picture(image, windowSurfaceObj):
     catSurfaceObj = image
     windowSurfaceObj.blit(catSurfaceObj, (0,0))
     pygame.display.update()
-
-#yourEmail = input("What is your email address: ")
 
 ##
 # format_date
@@ -97,7 +100,149 @@ def notify_thru_text(time_tripped):
     print("Text message sent!")
     return
 
-def start_detection():
+##
+# count_down_timer
+#
+# This timer is to allow the user some time for the 
+# taking pictures.
+def count_down_timer():
+    from_secs = 5
+    print("\n[INFO] Camera will start taking pictures in 5 seconds: ")
+    while not from_secs == 0:
+        mins, secs = divmod(from_secs, 60)
+        timeformat = '{:02d}:{:02d}'.format(mins, secs)
+        print(timeformat, end='\r')
+        time.sleep(1)
+        from_secs -= 1
+    
+    print("\n[INFO] Taking pictures now...")
+
+##
+# add_new_known
+#
+# This method created a new directory for new knowns in the
+# asset directory. Then it saves the images that will be used
+# for this known person in this directory. The directory's 
+# name is the name of the known person for convenience.
+def add_new_known():
+    name = input("\nWhat is the new known person's name?\n")
+    
+    windowSurfaceObj = setup_window()
+    
+    dir_path = "dataset/"+name+"/"
+    print("[INFO] Created path: ",dir_path)
+
+    if not os.path.exists(dir_path):
+        directory = os.makedirs(dir_path)
+    else:
+        print("\n[INFO] {} already exists.\n".format(name))
+        return
+
+    
+    cam = camera_init()
+    if not cam:
+        print("\nError initializing camera\n")
+    cam.start()
+
+    count_down_timer()
+
+    count = 0;
+    while (count < 30):
+        image = cam.get_image()
+        display_picture(image, windowSurfaceObj)
+        image_filename = '{}.jpg'.format(count)
+        print("[INFO] Saving image: " + image_filename)
+        pygame.image.save(windowSurfaceObj, os.path.join(dir_path, image_filename))#image_filename)
+        #print("returns from save")
+        count = count + 1
+
+    cam.stop()
+
+    print("\n[INFO] Done taking {}'s picture.".format(name) + " Extracting embeddings...\n")
+    extract()
+
+    print("\n[INFO] Done with embeddings. Training new embeddings...\n")
+    train_count = 0
+    while train_count < 30:
+        train()
+        train_count += 1
+
+    print("\n[INFO] Done with training...\n")
+
+##
+# add_more_pictures
+#
+# This method is for adding pictures to a known person's directory.
+# Each time this method is called it will save 30 pictures into the
+# known person's directory. It checks to see how many images are in 
+# the directory, then labels the new files incrementally. This is to
+# insure that files do not get replaced.
+def add_more_pictures(): 
+    count = 0
+    file_counter = 0
+    name1 = input("\nWhat is the known person's name?\n")
+    
+    windowSurfaceObj = setup_window()
+
+    dir_path = "dataset/"+name1+"/"
+    print("\n[INFO] known person exist: " + dir_path)
+
+    if not os.path.exists(dir_path):
+        print("\n[INFO] Known person {}".format(name1) + " does not exists")
+        option = input("[INFO] Would you like to add? ")
+        
+        if option == 'y' or option == 'Y' or option == "yes":
+            add_new_person()
+        return
+    else:
+        counter = len(os.listdir(dir_path))
+        print("[INFO] number of files in directory is: ", counter)
+        file_counter = counter;
+    
+    cam = camera_init()
+    if not cam:
+        print("\nError initializing camera\n")
+    cam.start()
+
+    count_down_timer()
+
+    while (count < 30):
+        image = cam.get_image()
+        display_picture(image, windowSurfaceObj)
+        file_counter = file_counter + 1
+        image_filename = '{}.jpg'.format(file_counter)
+        print("[INFO] Saving image: " + image_filename)
+        pygame.image.save(windowSurfaceObj, os.path.join(dir_path, image_filename))#image_filename)
+        #print("returns from save")
+        count = count + 1
+
+    cam.stop()
+
+    print("\n[INFO] Done taking {}'s picture".format(name1) + ". Extracting embeddings...\n")
+    extract()
+    print("\n[INFO] Done with embeddings. Training new embeddings...\n")
+    
+    train_count = 0
+    while (train_count < 30):
+        train()
+        train_count = train_count + 1
+    
+    print("\n[INFO] Done with training...\n")
+
+##
+# start_detection
+# 
+# This is the main method of this file. It contains a big while loop
+# that will check for motion. If motion is detected, it calls the 
+# external method recognize_video() from recognize_video.py to start
+# the recognition AI. When the recognize_video method returns with 
+# the known or unknown name, then it checks to see if the name is 
+# unknown. If it is, then an alert is sent to the user's email 
+# address with a picture, the frame used for detection. Then it 
+# repeats the process.
+#
+# @param user_email The user's inputted email from main.
+def start_detection(user_email):
     notified = 0
     while True:
         pir.wait_for_motion(1)
@@ -110,21 +255,6 @@ def start_detection():
             print("\n[INFO] Starting Recognizer...\n")
             ret_name = recognize_video()
             
-            '''
-            ########  Taking a picture  #########
-            cam = camera_init()
-            cam.start()
-            image = cam.get_image()
-            cam.stop()
-
-            #display the picture (optional for debugging only)
-            display_picture(image)
-
-            #save picture
-            pygame.image.save(windowSurfaceObj, 'capture_pic.jpg')
-            #####################################
-            '''
-
             if ret_name == "unknown":
                 ########  This is for sending email  ########
                 print("\n[INFO] Unknown person. Sending email...\n") 
@@ -148,7 +278,7 @@ def start_detection():
                 server.connect('smtp.gmail.com', 587)
                 server.starttls()
                 server.login("thebteam548@gmail.com", "Bpass548")
-                server.sendmail("thebteam548@gmail.com", yourEmail, msgRoot.as_string())
+                server.sendmail("thebteam548@gmail.com", user_email, msgRoot.as_string())
                 
                 print("[INFO] Done sending email.\n")
                 server.quit()
@@ -173,137 +303,38 @@ def start_detection():
             print("[INFO] Q was pressed exiting...")
             break
 
-def count_down_timer():
-    from_secs = 5
-    print("\n[INFO] Camera will start taking pictures in 5 seconds: ")
-    while not from_secs == 0:
-        mins, secs = divmod(from_secs, 60)
-        timeformat = '{:02d}:{:02d}'.format(mins, secs)
-        print(timeformat, end='\r')
-        time.sleep(1)
-        from_secs -= 1
+##
+# main
+#
+# This is the main method. It provides for a simple user interface so that
+# the user can add a new known or add more pictures to a new known. Once 
+# user has inputted his/her option, the program will invoke the method
+# start_detection() to begin motion detection.
+def main():
+    print("\n ====== Hello, welcome to the B-Team's stranger detector! ======")
     
-    print("\n[INFO] Taking pictures now...")
-
-def add_new_known():
-    name = input("\nWhat is the new known person's name?\n")
+    user_email = "athit_vue@hotmail.com"
+    #email_option = input("please enter your email address:\n")
     
-    windowSurfaceObj = setup_window()
+    print("")
+    option = input("Would you like to add a new known person (y/n)? ")
     
-    dir_path = "dataset/"+name+"/"
-    print(dir_path)
-
-    if not os.path.exists(dir_path):
-        directory = os.makedirs(dir_path)
-        #working_dir = os.chdir(dir_path)
-        #print(os.getcwd())
-    else:
-        print("\n{} already exists.\n".format(name))
-        return
-
-    
-    cam = camera_init()
-    if not cam:
-        print("\nError initializing camera\n")
-    cam.start()
-
-    count = 0;
-    while (count < 30):
-        image = cam.get_image()
-        display_picture(image, windowSurfaceObj)
-        image_filename = '{}.jpg'.format(count)
-        print("[INFO] Saving image: " + image_filename)
-        pygame.image.save(windowSurfaceObj, os.path.join(dir_path, image_filename))#image_filename)
-        #print("returns from save")
-        count = count + 1
-
-    cam.stop()
-
-    print("\n[INFO] Done taking {}'s picture. Extracting embeddings...\n")
-    extract()
-
-    print("\n[INFO] Done with embeddings. Training new embeddings...\n")
-    train_count = 0
-    while train_count < 10:
-        train()
-
-    print("\n[INFO] Done with training...\n")
-
-def add_more_pictures(): 
-    count = 0
-    file_counter = 0
-    name1 = input("\nWhat is the known person's name?\n")
-    
-    windowSurfaceObj = setup_window()
-
-    dir_path = "dataset/"+name1+"/"
-    print("\n[INFO] known person exist: " + dir_path)
-
-    if not os.path.exists(dir_path):
-        print("\nKnown person {}".format(name1) + " does not exists")
-        option = input("Would you like to add? ")
+    while option == 'y' or option == 'Y' or option == 'Yes' or option == 'YES':
+        add_new_known()
         
-        if option == 'y' or option == 'Y' or option == "yes":
-            add_new_person()
-        return
-    else:
-        counter = len(os.listdir(dir_path))
-        print("[INFO] number of files in directory is: ", counter)
-        file_counter = counter;
+        option = input("\nWould you like to add another new known person (y/n)? ")
+        
+        if option == 'n' or option == 'N' or option == 'No' or option == 'NO':
+            break;
     
-    cam = camera_init()
-    if not cam:
-        print("\nError initializing camera\n")
-    cam.start()
-
-
-    count_down_timer()
-
-    while (count < 30):
-        image = cam.get_image()
-        display_picture(image, windowSurfaceObj)
-        file_counter = file_counter + 1
-        image_filename = '{}.jpg'.format(file_counter)
-        print("[INFO] Saving image: " + image_filename)
-        pygame.image.save(windowSurfaceObj, os.path.join(dir_path, image_filename))#image_filename)
-        #print("returns from save")
-        count = count + 1
-
-    cam.stop()
-
-    print("\n[INFO] Done taking {}'s picture".format(name1) + ". Extracting embeddings...\n")
-    extract()
-    print("\n[INFO] Done with embeddings. Training new embeddings...\n")
+    option1 = input("Would you like to add more pictures to known persons (y/n)? ")
     
-    train_count = 0
-    while (train_count < 10):
-        train()
-        train_count = train_count + 1
-    
-    print("\n[INFO] Done with training...\n")
+    if option1 == 'y' or option1 == 'Y' or option1 == 'Yes' or option1 == 'YES':
+        add_more_pictures()
+        
+    print("\n[INFO] Starting the stranger detection system...\n")
+    start_detection(user_email)
 
-##### User interface? Begins ########
-print("\nHello, welcome to the B-Team's stranger detector.")
-
-option = input("Would you like to add a new known person (y/n)? ")
-
-while option == 'y' or option == 'Y' or option == 'Yes' or option == 'YES':
-    print("start the add new person routine")
-    add_new_known()
-
-    option = input("\nWould you like to add another new known person (y/n)? ")
-    
-    if option == 'n' or option == 'N' or option == 'No' or option == 'NO':
-        break;
-
-option1 = input("Would you like to add more pictures to known persons (y/n)? ")
-
-if option1 == 'y' or option1 == 'Y' or option1 == 'Yes' or option1 == 'YES':
-    add_more_pictures()
-
-
-print("\n[INFO] Starting the stranger detection system...\n")
-start_detection()
-
+main()
 
 
