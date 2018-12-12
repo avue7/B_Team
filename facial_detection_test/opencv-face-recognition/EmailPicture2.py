@@ -269,7 +269,7 @@ def start_detection(user_email):
                     print("\n[INFO] Somebody tripped the sensor, Could not detect.\n")
                     visitor="Somebody"
                 # Create the root message and fill in the from, to, and subject headers
-                msg = "{} is at the door.".format(visitor)
+                msg = "{} is at the door on ".format(visitor) + str(formatted_date)
                 msgRoot = MIMEMultipart('related')
                 msgRoot['Subject'] = 'test message'
                 msgRoot['From'] = "me"
@@ -279,12 +279,14 @@ def start_detection(user_email):
                 msgRoot.attach(msgAlternative)
                 msgText = MIMEText(msg)
                 msgAlternative.attach(msgText)
+               
+                for x in range(5):
+                    x = x+1
+                    fp = open('captured_images/captured_image.{}.jpg'.format(x), 'rb')
+                    msgImage = MIMEImage(fp.read())
+                    fp.close()
                 
-                fp = open('captured_images/captured_image.jpg', 'rb')
-                msgImage = MIMEImage(fp.read())
-                fp.close()
-                
-                msgRoot.attach(msgImage)
+                    msgRoot.attach(msgImage)
                 
                 server.connect('smtp.gmail.com', 587)
                 server.starttls()
