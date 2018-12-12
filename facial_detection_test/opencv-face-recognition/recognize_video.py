@@ -24,8 +24,14 @@ args = vars(ap.parse_args())
 
 
 def recognize_video():
+    # since we are here get rid of the captured_images
+    filelist = [ f for f in os.listdir("captured_images/") if f.endswith(".jpg") ]
+    for f in filelist:
+        os.remove(os.path.join("captured_images", f))
+
     name=''
     counter = 0
+    image_id = 0
     # load our serialized face detector from disk
     print("[INFO] loading face detector...")
     protoPath = os.path.sep.join(["face_detection_model", "deploy.prototxt"])
@@ -140,7 +146,7 @@ def recognize_video():
         if not name =='':
             counter += 1
             print("\n[INFO] Captured person name: ", name)
-            cv2.imwrite("captured_images/captured_image.{}.jpg".format(counter), frame)
+            cv2.imwrite("captured_images/captured_image.{}.jpg".format(image_id), frame)
             
             if name == "unknown":
                 unknown_counter += 1
@@ -150,7 +156,10 @@ def recognize_video():
 
             if counter == 5:
                 break
-        
+        else:
+            image_id += 1
+            cv2.imwrite("captured_images/captured_image.{}.jpg".format(image_id), frame)
+            
         timer_from -=1
 
 
