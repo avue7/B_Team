@@ -21,7 +21,9 @@ ap.add_argument("-c", "--confidence", type=float, default=0.5,
 	help="minimum probability to filter weak detections")
 args = vars(ap.parse_args())
 
+
 def recognize_video():
+    name=''
     # load our serialized face detector from disk
     print("[INFO] loading face detector...")
     protoPath = os.path.sep.join(["face_detection_model", "deploy.prototxt"])
@@ -109,7 +111,7 @@ def recognize_video():
                         (0, 0, 255), 2)
                 cv2.putText(frame, text, (startX, y),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
-        
+                
         # update the FPS counter
         fps.update()
         
@@ -120,6 +122,13 @@ def recognize_video():
         # if the `q` key was pressed, break from the loop
         if key == ord("q"):
             break
+
+        # testing this
+        if not name =='':
+            print("\n[INFO] Captured person name: ", name)
+            cv2.imwrite("captured_images/captured_image.jpg", frame)
+            break
+
     # stop the timer and display FPS information
     fps.stop()
     print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
@@ -128,5 +137,9 @@ def recognize_video():
     # do a bit of cleanup
     cv2.destroyAllWindows()
     vs.stop()
+    
+    time.sleep(3)
 
-recognize_video()
+    return name
+
+#recognize_video()

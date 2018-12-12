@@ -6,10 +6,12 @@ will do is send an email. For whatever reason, Pi is having issues
 taking a picture.
 '''
 import sys
+import time
 import smtplib
+import cv2
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
-from email.MIMEText import MIMEText
+from email.mime.text import MIMEText
 
 from gpiozero import MotionSensor
 from datetime import datetime
@@ -22,8 +24,12 @@ import pygame
 import pygame.camera
 from pygame.locals import *
 
+#working files imports
+from extract_embeddings import extract
+from train_model import train
+from recognize_video import recognize_video
+
 #variable declarations:
-notified = 0
 visitor = "unknown visitor"
 
 #yourEmail = "thebteam548@gmail.com"
@@ -31,41 +37,32 @@ visitor = "unknown visitor"
 yourEmail = "athit_vue@hotmail.com"
 
 server = smtplib.SMTP()
-msg = "A(n) {} is at the door.".format(visitor) #currently, this is the message that will be sent.
+msg = "A(n) {} is at the door.".format(visitor)
 pir = MotionSensor(4)
 
 #set width and height of photo captured
 width = 640
 height = 480
 
-#setup window 
-windowSurfaceObj = pygame.display.set_mode((width, height), 1, 16)
-pygame.display.set_caption('Front Door Camera')
+def setup_window(): 
+    windowSurfaceObj = pygame.display.set_mode((width, height), 1, 16)
+    pygame.display.set_caption('Front Door Camera')
+    return windowSurfaceObj
 
 #initialise pygame 
 def camera_init():
     pygame.init()
     pygame.camera.init()
     cam = pygame.camera.Camera("/dev/video0",(width,height))
-    cam.start()
     return cam
 
 #display the picture (may not need only for debugging)
-def display_picture(image):
+def display_picture(image, windowSurfaceObj):
     catSurfaceObj = image
     windowSurfaceObj.blit(catSurfaceObj, (0,0))
     pygame.display.update()
 
-'''
-The above is the piece of code that Pi doesn't seem to like. We will
-need to set cam and connect it to the camera we intend to use in the 
-final project.
-'''
-
 #yourEmail = input("What is your email address: ")
-'''
-Check your spam folder.
-'''
 
 ##
 # format_date
@@ -100,24 +97,23 @@ def notify_thru_text(time_tripped):
     print("Text message sent!")
     return
 
-while True:
-	#print("Waiting for motion.")
-	#cam.start()
-	#img = cam.get_image()
-	'''
-	Upon detecting motion (or at the press of a button in our case) the
-	camera should start and take a picture, which will be called "img".
-	'''
-	#print("Motion detected. Picture taken.")
-	pir.wait_for_motion(1)
+def start_detection():
+    notified = 0
+    while True:
+        pir.wait_for_motion(1)
         if pir.motion_detected and notified == 0:
             time_tripped = datetime.now()
             formatted_date = format_date(time_tripped)
-            print("Motion detected")
-            print(str(formatted_date))
-
+            print("\n[INFO] Motion detected")
+            print("[INFO] " + str(formatted_date))
+    
+            print("\n[INFO] Starting Recognizer...\n")
+            ret_name = recognize_video()
+            
+            '''
             ########  Taking a picture  #########
             cam = camera_init()
+            cam.start()
             image = cam.get_image()
             cam.stop()
 
@@ -127,49 +123,39 @@ while True:
             #save picture
             pygame.image.save(windowSurfaceObj, 'capture_pic.jpg')
             #####################################
+            '''
 
-            ########  This is for sending email  ########
-            print("Sending email...")
-            # Create the root message and fill in the from, to, and subject headers
-            msgRoot = MIMEMultipart('related')
-            msgRoot['Subject'] = 'test message'
-            msgRoot['From'] = "me"
-            msgRoot['To'] = "you"
-            msgRoot.preamble = 'This is a multi-part message in MIME format.'
-            
-            msgAlternative = MIMEMultipart('alternative')
-            msgRoot.attach(msgAlternative)
-
-            msgText = MIMEText(msg)
-            msgAlternative.attach(msgText)
-
-            fp = open('capture_pic.jpg', 'rb')
-            msgImage = MIMEImage(fp.read())
-            fp.close()
-            
-            msgRoot.attach(msgImage)
-            #msg.attach(img)
-            
-            server.connect('smtp.gmail.com', 587)
-    	    server.starttls()
-	    server.login("thebteam548@gmail.com", "Bpass548") #This is the email address we're using to send the email.
-	    server.sendmail("thebteam548@gmail.com", yourEmail, msgRoot.as_string()) #Right now, we're just sending an email to ourselves.
-	    # msg.attach(image)
-	    '''
-	    At this point, img should be attached to our email. In addition, face
-	    recognition should be used to identify if the img is recognized or not.
-	    If the image is not recognized, visitor should be changed to "stranger"
-	    or, if the face is recognized, visitor could be set to acquaintance.
-	
-	    If, for whatever reason, we cannot detect their face (i.e. back is turned),
-	    the visitor variable will stay at the default "unknown visitor" with the
-	    attached image. If we want to go further, we can have the face recognition
-	    seperate known faces into a category of "friends", "family", and "acquaintances".
-	    '''
-            print("Done sending email.")
-	    server.quit()
-	    #############################################
-
+            if ret_name == "unknown":
+                ########  This is for sending email  ########
+                print("\n[INFO] Unknown person. Sending email...\n") 
+                # Create the root message and fill in the from, to, and subject headers
+                msgRoot = MIMEMultipart('related')
+                msgRoot['Subject'] = 'test message'
+                msgRoot['From'] = "me"
+                msgRoot['To'] = "you"
+                msgRoot.preamble = 'This is a multi-part message in MIME format.'
+                msgAlternative = MIMEMultipart('alternative')
+                msgRoot.attach(msgAlternative)
+                msgText = MIMEText(msg)
+                msgAlternative.attach(msgText)
+                
+                fp = open('captured_images/captured_image.jpg', 'rb')
+                msgImage = MIMEImage(fp.read())
+                fp.close()
+                
+                msgRoot.attach(msgImage)
+                
+                server.connect('smtp.gmail.com', 587)
+                server.starttls()
+                server.login("thebteam548@gmail.com", "Bpass548")
+                server.sendmail("thebteam548@gmail.com", yourEmail, msgRoot.as_string())
+                
+                print("[INFO] Done sending email.\n")
+                server.quit()
+                #############################################
+            else:
+                print("\n[INFO] Known person <{}> tripped the sensor.".format(ret_name))
+                print("")
             ######### This is for sending a text message ###########
             ## DISABLING FOR NOW
             # notify_thru_text(formatted_date)
@@ -179,9 +165,145 @@ while True:
         if not pir.motion_detected: 
             notified = 0
             print("No motion detected")
-	    '''
-	    Currently this relies on motion, but our project idea calls for a button.
-	    We can decide whether we still want to use a button, switch to motion, or
-	    just use a keyboard key to activate it. We should consider what would be
-	    easiest to present to the rest of the class.
-	    '''
+        
+        
+        key = cv2.waitKey(1) & 0xFF
+        # if 'q' key is pressed then exit the program gracefully
+        if key == ord("q"):
+            print("[INFO] Q was pressed exiting...")
+            break
+
+def count_down_timer():
+    from_secs = 5
+    print("\n[INFO] Camera will start taking pictures in 5 seconds: ")
+    while not from_secs == 0:
+        mins, secs = divmod(from_secs, 60)
+        timeformat = '{:02d}:{:02d}'.format(mins, secs)
+        print(timeformat, end='\r')
+        time.sleep(1)
+        from_secs -= 1
+    
+    print("\n[INFO] Taking pictures now...")
+
+def add_new_known():
+    name = input("\nWhat is the new known person's name?\n")
+    
+    windowSurfaceObj = setup_window()
+    
+    dir_path = "dataset/"+name+"/"
+    print(dir_path)
+
+    if not os.path.exists(dir_path):
+        directory = os.makedirs(dir_path)
+        #working_dir = os.chdir(dir_path)
+        #print(os.getcwd())
+    else:
+        print("\n{} already exists.\n".format(name))
+        return
+
+    
+    cam = camera_init()
+    if not cam:
+        print("\nError initializing camera\n")
+    cam.start()
+
+    count = 0;
+    while (count < 30):
+        image = cam.get_image()
+        display_picture(image, windowSurfaceObj)
+        image_filename = '{}.jpg'.format(count)
+        print("[INFO] Saving image: " + image_filename)
+        pygame.image.save(windowSurfaceObj, os.path.join(dir_path, image_filename))#image_filename)
+        #print("returns from save")
+        count = count + 1
+
+    cam.stop()
+
+    print("\n[INFO] Done taking {}'s picture. Extracting embeddings...\n")
+    extract()
+
+    print("\n[INFO] Done with embeddings. Training new embeddings...\n")
+    train_count = 0
+    while train_count < 10:
+        train()
+
+    print("\n[INFO] Done with training...\n")
+
+def add_more_pictures(): 
+    count = 0
+    file_counter = 0
+    name1 = input("\nWhat is the known person's name?\n")
+    
+    windowSurfaceObj = setup_window()
+
+    dir_path = "dataset/"+name1+"/"
+    print("\n[INFO] known person exist: " + dir_path)
+
+    if not os.path.exists(dir_path):
+        print("\nKnown person {}".format(name1) + " does not exists")
+        option = input("Would you like to add? ")
+        
+        if option == 'y' or option == 'Y' or option == "yes":
+            add_new_person()
+        return
+    else:
+        counter = len(os.listdir(dir_path))
+        print("[INFO] number of files in directory is: ", counter)
+        file_counter = counter;
+    
+    cam = camera_init()
+    if not cam:
+        print("\nError initializing camera\n")
+    cam.start()
+
+
+    count_down_timer()
+
+    while (count < 30):
+        image = cam.get_image()
+        display_picture(image, windowSurfaceObj)
+        file_counter = file_counter + 1
+        image_filename = '{}.jpg'.format(file_counter)
+        print("[INFO] Saving image: " + image_filename)
+        pygame.image.save(windowSurfaceObj, os.path.join(dir_path, image_filename))#image_filename)
+        #print("returns from save")
+        count = count + 1
+
+    cam.stop()
+
+    print("\n[INFO] Done taking {}'s picture".format(name1) + ". Extracting embeddings...\n")
+    extract()
+    print("\n[INFO] Done with embeddings. Training new embeddings...\n")
+    
+    train_count = 0
+    while (train_count < 10):
+        train()
+        train_count = train_count + 1
+    
+    print("\n[INFO] Done with training...\n")
+
+##### User interface? Begins ########
+print("\nHello, welcome to the B-Team's stranger detector.")
+
+option = input("Would you like to add a new known person (y/n)? ")
+
+while option == 'y' or option == 'Y' or option == 'Yes' or option == 'YES':
+    print("start the add new person routine")
+    add_new_known()
+
+    option = input("\nWould you like to add another new known person (y/n)? ")
+    
+    if option == 'n' or option == 'N' or option == 'No' or option == 'NO':
+        break;
+
+option1 = input("Would you like to add more pictures to known persons (y/n)? ")
+
+if option1 == 'y' or option1 == 'Y' or option1 == 'Yes' or option1 == 'YES':
+    add_more_pictures()
+
+
+print("\n[INFO] Starting the stranger detection system...\n")
+start_detection()
+
+
+
